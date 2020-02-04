@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <project xmlns="http://www.plcopen.org/xml/tc6_0200">
-  <fileHeader companyName="Beckhoff Automation GmbH" productName="TwinCAT PLC Control" productVersion="3.5.10.30" creationDateTime="2019-05-17T10:29:43.5973623" />
-  <contentHeader name="PLC" modificationDateTime="2019-05-17T10:29:43.6023611">
+  <fileHeader companyName="Beckhoff Automation GmbH" productName="TwinCAT PLC Control" productVersion="3.5.13.20" creationDateTime="2020-02-04T14:09:42.6775262" />
+  <contentHeader name="PLC" modificationDateTime="2020-02-04T14:09:42.6805253">
     <coordinateInfo>
       <fbd>
         <scaling x="1" y="1" />
@@ -39,7 +39,7 @@
             </variable>
             <variable name="Length">
               <type>
-                <DINT />
+                <UDINT />
               </type>
               <documentation>
                 <xhtml xmlns="http://www.w3.org/1999/xhtml"> Length of Queue</xhtml>
@@ -81,7 +81,7 @@
             </variable>
             <variable name="_idxEnqueue">
               <type>
-                <DINT />
+                <UDINT />
               </type>
               <documentation>
                 <xhtml xmlns="http://www.w3.org/1999/xhtml"> queue/dequeue indices</xhtml>
@@ -89,12 +89,12 @@
             </variable>
             <variable name="_idxDequeue">
               <type>
-                <DINT />
+                <UDINT />
               </type>
             </variable>
             <variable name="_count">
               <type>
-                <DINT />
+                <UDINT />
               </type>
               <documentation>
                 <xhtml xmlns="http://www.w3.org/1999/xhtml"> element count</xhtml>
@@ -124,10 +124,21 @@
             </variable>
             <variable name="_sizeof">
               <type>
-                <DINT />
+                <UDINT />
               </type>
               <documentation>
                 <xhtml xmlns="http://www.w3.org/1999/xhtml"> element size</xhtml>
+              </documentation>
+            </variable>
+            <variable name="_init">
+              <type>
+                <BOOL />
+              </type>
+              <initialValue>
+                <simpleValue value="FALSE" />
+              </initialValue>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> init flag</xhtml>
               </documentation>
             </variable>
           </localVars>
@@ -138,20 +149,35 @@
         </interface>
         <body>
           <ST>
-            <xhtml xmlns="http://www.w3.org/1999/xhtml" />
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">IF NOT _init THEN
+	_init := TRUE;
+END_IF</xhtml>
           </ST>
         </body>
         <addData>
           <data name="http://www.3s-software.com/plcopenxml/method" handleUnknown="implementation">
             <Method name="Clear" ObjectId="9d558a6c-48bc-4387-a904-2aae02ba153d">
-              <interface />
+              <interface>
+                <documentation>
+                  <xhtml xmlns="http://www.w3.org/1999/xhtml"> Clears buffer data and resets head/tail pointers. Warning: all data in data array will be reset to 0.
+ Usage: fbInstance.Clear();</xhtml>
+                </documentation>
+              </interface>
               <body>
                 <ST>
-                  <xhtml xmlns="http://www.w3.org/1999/xhtml">// throw new NotImplementedException</xhtml>
+                  <xhtml xmlns="http://www.w3.org/1999/xhtml">MEMSET(ptrArrData, 0, _sizeof * Length);
+_count := 0;
+_empty := TRUE;
+_full := FALSE;
+_ptrEnqueue := 0;
+_ptrDequeue := 0;
+</xhtml>
                 </ST>
               </body>
               <InterfaceAsPlainText>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml">METHOD Clear
+                <xhtml xmlns="http://www.w3.org/1999/xhtml">// Clears buffer data and resets head/tail pointers. Warning: all data in data array will be reset to 0.
+// Usage: fbInstance.Clear();
+METHOD Clear
 VAR_INPUT
 END_VAR
 </xhtml>
@@ -162,35 +188,41 @@ END_VAR
           <data name="http://www.3s-software.com/plcopenxml/method" handleUnknown="implementation">
             <Method name="Dequeue" ObjectId="340abd24-2a18-45e0-941a-f5954dd09fce">
               <interface>
-                <returnType>
-                  <pointer>
-                    <baseType>
-                      <DWORD />
-                    </baseType>
-                  </pointer>
-                </returnType>
+                <inputVars>
+                  <variable name="pReadData">
+                    <type>
+                      <pointer>
+                        <baseType>
+                          <DWORD />
+                        </baseType>
+                      </pointer>
+                    </type>
+                  </variable>
+                </inputVars>
                 <documentation>
-                  <xhtml xmlns="http://www.w3.org/1999/xhtml"> Remove/Retrieve and item from the Queue. Returns a pointer to the retrieved item.
- Usage: MEMCPY(ADR(destination), fbFifoQueue.Dequeue(), SIZEOF(destination));</xhtml>
+                  <xhtml xmlns="http://www.w3.org/1999/xhtml"> Remove/Retrieve and item from the Queue.
+ Usage: fbInstance.Dequeue((ADR(destination));</xhtml>
                 </documentation>
               </interface>
               <body>
                 <ST>
-                  <xhtml xmlns="http://www.w3.org/1999/xhtml">// reset full
-_full := FALSE;
-
-// queue has (valid) elements
+                  <xhtml xmlns="http://www.w3.org/1999/xhtml">// queue has (valid) elements
 IF _count &gt; 0 AND _sizeof &gt; 0 THEN
 	
-	// assign return value ptr
-	Dequeue := _ptrDequeue;
+	// calculate dequeue pointer
+	_ptrDequeue := ptrArrData + TO_DWORD(_sizeof * _idxDequeue);
+	
+	// copy dequeue pointer to read data
+	MEMCPY(pReadData, _ptrDequeue, _sizeof);
 	
 	// increment pop ptr
 	_idxDequeue := (_idxDequeue + 1) MOD Length;
-	_ptrDequeue := ptrArrData + DINT_TO_DWORD(_sizeof * _idxDequeue);
 	
 	// decrement element count
 	_count := _count - 1;
+	
+	// clear full
+	_full := FALSE;
 END_IF
 
 // set empty
@@ -200,9 +232,12 @@ END_IF</xhtml>
                 </ST>
               </body>
               <InterfaceAsPlainText>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml">// Remove/Retrieve and item from the Queue. Returns a pointer to the retrieved item.
-// Usage: MEMCPY(ADR(destination), fbFifoQueue.Dequeue(), SIZEOF(destination));
-METHOD Dequeue : POINTER TO DWORD
+                <xhtml xmlns="http://www.w3.org/1999/xhtml">// Remove/Retrieve and item from the Queue.
+// Usage: fbInstance.Dequeue((ADR(destination));
+METHOD Dequeue
+VAR_INPUT
+	pReadData : POINTER TO DWORD;
+END_VAR
 </xhtml>
               </InterfaceAsPlainText>
               <addData />
@@ -211,6 +246,9 @@ METHOD Dequeue : POINTER TO DWORD
           <data name="http://www.3s-software.com/plcopenxml/method" handleUnknown="implementation">
             <Method name="Enqueue" ObjectId="f4d24e47-7862-4855-a4f2-309763f71887">
               <interface>
+                <returnType>
+                  <BOOL />
+                </returnType>
                 <inputVars>
                   <variable name="Val">
                     <type>
@@ -236,8 +274,8 @@ METHOD Dequeue : POINTER TO DWORD
                   </data>
                 </addData>
                 <documentation>
-                  <xhtml xmlns="http://www.w3.org/1999/xhtml"> Add an item to the Queue.
- Usage: fbFifoQueue.Enqueue(item);</xhtml>
+                  <xhtml xmlns="http://www.w3.org/1999/xhtml"> Add an item to the Queue. Returns true if successful.
+ Usage: fbInstance.Enqueue(item);</xhtml>
                 </documentation>
               </interface>
               <body>
@@ -253,8 +291,8 @@ IF _ptrEnqueue = 0 THEN
 	_ptrDequeue := _ptrEnqueue;
 	
 	// get element size
-	_sizeof := Val.diSize;
-END_IF
+	_sizeof := TO_UDINT(Val.diSize);
+END_IF 
 
 // only overwrite data if in Ring buffer mode
 IF (NOT _full) OR (_full AND Ring) THEN
@@ -262,35 +300,139 @@ IF (NOT _full) OR (_full AND Ring) THEN
 	IF (_full AND Ring) THEN
 		// increment dequeue ptr
 		_idxDequeue := (_idxDequeue + 1) MOD Length;
-		_ptrDequeue := ptrArrData + DINT_TO_DWORD(_sizeof * _idxDequeue);
 	END_IF
 	
+	// calculate enqueue pointer
+	_ptrEnqueue := ptrArrData + TO_DWORD(_sizeof * _idxEnqueue);
+	
 	// load value into buffer
-	MEMCPY(_ptrEnqueue, Val.pValue, DINT_TO_UDINT(_sizeof));
+	MEMCPY(_ptrEnqueue, Val.pValue, TO_UDINT(_sizeof));
 
 	// increment enqueue ptr
 	_idxEnqueue := (_idxEnqueue + 1) MOD Length;
-	_ptrEnqueue := ptrArrData + DINT_TO_DWORD(_sizeof * _idxEnqueue);
 	
 	// increment element count
 	IF NOT _full THEN 
 		_count := _count + 1; 
 	END_IF
+	
+	Enqueue := TRUE;
+ELSE
+	Enqueue := FALSE;
 END_IF
 
 // buffer full
 IF _count = Length THEN
 	_full := TRUE;
+ELSE
+	_full := FALSE;
 END_IF</xhtml>
                 </ST>
               </body>
               <InterfaceAsPlainText>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml">// Add an item to the Queue.
-// Usage: fbFifoQueue.Enqueue(item);
-METHOD Enqueue
+                <xhtml xmlns="http://www.w3.org/1999/xhtml">// Add an item to the Queue. Returns true if successful.
+// Usage: fbInstance.Enqueue(item);
+METHOD Enqueue : BOOL
 VAR_INPUT
 	Val : ANY;	// Queued Item
 END_VAR</xhtml>
+              </InterfaceAsPlainText>
+              <addData />
+            </Method>
+          </data>
+          <data name="http://www.3s-software.com/plcopenxml/method" handleUnknown="implementation">
+            <Method name="Sort" ObjectId="0f9e115a-8d90-4973-9470-b5451226bf7b">
+              <interface>
+                <localVars>
+                  <variable name="_arrTemp">
+                    <type>
+                      <pointer>
+                        <baseType>
+                          <BYTE />
+                        </baseType>
+                      </pointer>
+                    </type>
+                  </variable>
+                  <variable name="_elemTemp">
+                    <type>
+                      <pointer>
+                        <baseType>
+                          <BYTE />
+                        </baseType>
+                      </pointer>
+                    </type>
+                  </variable>
+                  <variable name="_countTemp">
+                    <type>
+                      <UDINT />
+                    </type>
+                  </variable>
+                  <variable name="i">
+                    <type>
+                      <UDINT />
+                    </type>
+                  </variable>
+                </localVars>
+                <documentation>
+                  <xhtml xmlns="http://www.w3.org/1999/xhtml"> Sorts FIFO elements in data array by entry order.
+ Usage: fbInstance.Sort();</xhtml>
+                </documentation>
+              </interface>
+              <body>
+                <ST>
+                  <xhtml xmlns="http://www.w3.org/1999/xhtml">// data can be sorted
+IF Length &lt; 1 OR _count &lt; 1 OR _sizeof &lt; 1 THEN
+	RETURN;
+END_IF
+
+// allocate memory for temporary copies
+_arrTemp := __NEW(BYTE, (_sizeof * _count));
+_elemTemp := __NEW(BYTE, _sizeof);
+
+// get count
+_countTemp := _count;
+
+// copy to temp memory via Dequeue method (maintains queue order)
+FOR i := 0 TO _countTemp - 1 DO
+	THIS^.Dequeue(ADR(_elemTemp[0]));
+	MEMCPY(ADR(_arrTemp[i * _sizeof]), ADR(_elemTemp[0]), _sizeof);
+END_FOR
+
+// clear queue data
+THIS^.Clear();
+
+// copy temp data back into queue
+MEMCPY(ptrArrData, ADR(_arrTemp[0]), (_sizeof * _countTemp));
+
+// reset count
+_count := _countTemp;
+
+// reset enqueue/dequeue pointers
+_idxEnqueue := _countTemp MOD Length;
+_idxDequeue := 0;
+
+// reset empty/full
+_empty := FALSE;
+IF _count = Length THEN
+	_full := TRUE;
+END_IF
+
+// free memory
+__DELETE(_arrTemp);
+__DELETE(_elemTemp);</xhtml>
+                </ST>
+              </body>
+              <InterfaceAsPlainText>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml">// Sorts FIFO elements in data array by entry order.
+// Usage: fbInstance.Sort();
+METHOD Sort
+VAR
+	_arrTemp : POINTER TO BYTE;
+	_elemTemp : POINTER TO BYTE;
+	_countTemp : UDINT;
+	i : UDINT;
+END_VAR
+</xhtml>
               </InterfaceAsPlainText>
               <addData />
             </Method>
@@ -383,7 +525,7 @@ END_VAR
 FUNCTION_BLOCK FB_FifoQueue
 VAR_INPUT
 	ptrArrData 	: POINTER TO DWORD; // Queue Data Array
-	Length 		: DINT;				// Length of Queue
+	Length 		: UDINT;				// Length of Queue
 	Ring		: BOOL;				// Queue acts as a Ring Buffer (oldest data is overwritten when queue is full)
 END_VAR
 VAR_OUTPUT
@@ -395,17 +537,19 @@ VAR
 	_ptrDequeue	: POINTER TO DWORD;
 	
 	// queue/dequeue indices
-	_idxEnqueue	: DINT;
-	_idxDequeue	: DINT;
+	_idxEnqueue	: UDINT;
+	_idxDequeue	: UDINT;
 	
 	// element count
-	_count 		: DINT;
+	_count 		: UDINT;
 	// buffer full
 	_full 		: BOOL := FALSE;
 	// buffer empty
 	_empty 		: BOOL := TRUE;
 	// element size
-	_sizeof : DINT;
+	_sizeof : UDINT;
+	// init flag
+	_init : BOOL := FALSE;
 END_VAR
 </xhtml>
             </InterfaceAsPlainText>
@@ -430,6 +574,7 @@ END_VAR
           <Object Name="Enqueue" ObjectId="f4d24e47-7862-4855-a4f2-309763f71887" />
           <Object Name="IsEmpty" ObjectId="7b47624c-a63c-45bb-9386-d6c8c611e0d0" />
           <Object Name="IsFull" ObjectId="026de543-9a0d-497d-a2c4-b2f5d12a8d52" />
+          <Object Name="Sort" ObjectId="0f9e115a-8d90-4973-9470-b5451226bf7b" />
         </Object>
       </ProjectStructure>
     </data>

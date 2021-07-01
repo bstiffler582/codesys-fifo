@@ -52,7 +52,7 @@ END_IF
 
 IF dequeue THEN
 	// dequeue item
-	MEMCPY(ADR(item_dequeue), fbFifoQueue.Dequeue(), SIZEOF(item_dequeue));
+    	fbFifoQueue.Dequeue(ADR(item_dequeue));
 	
 	dequeue := FALSE;
 END_IF

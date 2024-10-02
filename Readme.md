@@ -1,8 +1,7 @@
-// Type agnostic / generic type FIFO queue and ring buffer implementations
-// Programmed in Visual Studio 2015 using Beckhoff TwinCAT development environment
+Type agnostic / generic type FIFO queue and ring buffer implementations
+Programmed in Visual Studio 2015 using Beckhoff TwinCAT development environment
 
-////////////////////// Usage Sample ///////////////////
-
+```js
 // DUTs
 TYPE ST_Test :
 STRUCT
@@ -10,8 +9,9 @@ STRUCT
 	fTest : REAL;
 END_STRUCT
 END_TYPE
+```
 
-
+```js
 // MAIN
 // Header / declarations
 PROGRAM MAIN
@@ -33,7 +33,9 @@ VAR
 	item_dequeue : ST_Test;
 	
 END_VAR
+```
 
+```js
 // BODY
 
 // instantiate FIFO queue
@@ -56,3 +58,4 @@ IF dequeue THEN
 	
 	dequeue := FALSE;
 END_IF
+```
